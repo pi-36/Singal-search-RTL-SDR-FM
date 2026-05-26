@@ -1,0 +1,69 @@
+import time
+from luma.core.interface.serial import spi
+from luma.lcd.device import st7789
+from luma.core.gpio import gpiod  # Cruciaal voor de Raspberry Pi 5!
+from PIL import Image, ImageDraw
+
+def main():
+    print("Initialiseren van de GMT020 schermen op de Pi 5...")
+    print("Scherm 1 start op SPI0, Scherm 2 start op SPI1.")
+
+    try:
+        # --- CONFIGURATIE SCHERM 1 (Fysieke pinnen op SPI0) ---
+        # SCL=GPIO 11 (Pin 23) | SDA=GPIO 10 (Pin 19) | CS=GPIO 8 (Pin 24)
+        serial_1 = spi(
+            port=0,                 # /dev/spidev0.0
+            device=0,               
+            gpio_DC=25,             # DC = GPIO 25 (Pin 22)
+            gpio_RST=24,            # RST = GPIO 24 (Pin 18)
+            bus_speed_hz=40000000,  # 40MHz
+            gpio=gpiod()            # Dwingt de Pi 5 gpiod-driver af
+        )
+        device_1 = st7789(serial_1, width=240, height=320, rotate=1)
+        print("-> Scherm 1 succesvol geïnitialiseerd.")
+
+        # --- CONFIGURATIE SCHERM 2 (Fysieke pinnen op SPI1) ---
+        # SCL=GPIO 21 (Pin 40) | SDA=GPIO 20 (Pin 38) | CS=GPIO 18 (Pin 12)
+        serial_2 = spi(
+            port=1,                 # /dev/spidev1.0
+            device=0,               
+            gpio_DC=23,             # DC = GPIO 23 (Pin 16)
+            gpio_RST=22,            # RST = GPIO 22 (Pin 15) - Eigen vrije pin!
+            bus_speed_hz=40000000,  # 40MHz
+            gpio=gpiod()            # Dwingt de Pi 5 gpiod-driver af
+        )
+        device_2 = st7789(serial_2, width=240, height=320, rotate=1)
+        print("-> Scherm 2 succesvol geïnitialiseerd.")
+
+        # --- TEST AFBEELDINGEN MAKEN EN TEKENEN ---
+        print("Gegevens naar schermen schrijven...")
+
+        # Teken Scherm 1 (Blauwe achtergrond)
+        img1 = Image.new("RGB", (device_1.width, device_1.height), "blue")
+        draw1 = ImageDraw.Draw(img1)
+        draw1.text((20, 40), "SCHERM 1", fill="white")
+        draw1.text((20, 70), "Bus: SPI0", fill="yellow")
+        draw1.text((20, 100), "RST: GPIO 24", fill="white")
+        device_1.display(img1)
+
+        # Teken Scherm 2 (Rode achtergrond)
+        img2 = Image.new("RGB", (device_2.width, device_2.height), "red")
+        draw2 = ImageDraw.Draw(img2)
+        draw2.text((20, 40), "SCHERM 2", fill="white")
+        draw2.text((20, 70), "Bus: SPI1", fill="green")
+        draw2.text((20, 100), "RST: GPIO 22", fill="white")
+        device_2.display(img2)
+
+        print("\nBeide schermen zijn nu actief! Druk op Ctrl+C om te stoppen.")
+        
+        # Houd het script in leven zodat de schermen aan blijven
+        while True:
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\nScript gestopt door gebruiker.")
+    except Exception as e:
+        print(f"\nEr is een fout opgetreden: {e}")
+
+if __name__ == "__main__":
+    main()
